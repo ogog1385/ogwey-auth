@@ -20,9 +20,9 @@ def list_sessions():
             sessions_set.add(base_name)
     return sorted(list(sessions_set))
 
-def check_account_status(session_name):
+def check_account_status(sess_name):
     """بررسی سلامت و مشخصات عمومی اکانت"""
-    sess_path = os.path.join(SESSIONS_DIR, session_name)
+    sess_path = os.path.join(SESSIONS_DIR, sess_name)
     try:
         client = pyrubi.Client(sess_path)
         me = client.get_me()
@@ -32,45 +32,53 @@ def check_account_status(session_name):
         return {
             "status": "active",
             "name": f"{first_name} {last_name}".strip(),
-            "session": session_name
+            "session": sess_name
         }
     except Exception as exc:
         return {
             "status": "error",
             "error": str(exc),
-            "session": session_name
+            "session": sess_name
         }
 
-# نگهداری موقت وضعیت‌های در حال انتظار برای هر ادمین
 PENDING_LOGINS = {}
 
 def start_login_process(chat_id, phone_number):
-    """شروع درخواست کد تایید"""
+    """شروع درخواست کد تایید با اصلاح فرمت شماره"""
+    # پاکسازی شماره و استانداردسازی (تبدیل 09... به 989...)
     clean_phone = phone_number.replace("+", "").strip()
-    session_name = f"acc_{clean_phone}"
-    sess_path = os.path.join(SESSIONS_DIR, session_name)
+    if clean_phone.startswith("0"):
+        clean_phone = "98" + clean_phone[1:]
+    elif not clean_phone.startswith("98"):
+        clean_phone = "98" + clean_phone
+        
+    sess_name = f"acc_{clean_phone}"
+    sess_path = os.path.join(SESSIONS_DIR, sess_name)
     
     try:
-        # ایجاد کلاینت با مسیر سشن
+        # ساخت کلاینت و درخواست کد
         client = pyrubi.Client(sess_path)
         
-        # ارسال درخواست کد تایید
-        client.send_code(phone_number)
+        # بررسی وجود متد send_code
+        if hasattr(client, "send_code"):
+            res = client.send_code(clean_phone)
+        else:
+            # روش جایگزین در صورت تفاوت در نسخه pyrubi
+            raise AttributeError("متد send_code در این نسخه از pyrubi یافت نشد.")
         
-        PENDING_LOGINS[chat_id] = {"client": client, "session": session_name}
-        return {"status": "code_sent", "message": f"کد تایید به شماره {phone_number} ارسال شد.\nلطفاً فقط کد دریافتی را بفرستید (مثلاً: 12345):"}
+        PENDING_LOGINS[chat_id] = {"client": client, "session": sess_name}
+        return {"status": "code_sent", "message": f"کد تایید با موفقیت به شماره {clean_phone}+ ارسال شد.\nلطفاً فقط کد دریافتی را بفرستید:"}
     except Exception as e:
         return {"status": "error", "message": f"خطا در ارسال کد به روبیکا:\n{str(e)}"}
 
 def verify_login_code(chat_id, code):
-    """تایید نهایی کد وارد شده و ثبت نام"""
+    """تایید نهایی کد وارد شده"""
     user_data = PENDING_LOGINS.get(chat_id)
     if not user_data:
         return {"status": "error", "message": "ابتدا باید دستور /add را همراه با شماره تلفن ارسال کنید."}
     
     client = user_data["client"]
     try:
-        # تایید کد و ورود نهایی
         client.sign_in(code)
         del PENDING_LOGINS[chat_id]
         return {"status": "success", "message": "حساب با موفقیت اضافه شد و سشن ذخیره گردید! ✅"}
