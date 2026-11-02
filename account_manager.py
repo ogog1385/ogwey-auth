@@ -13,12 +13,12 @@ def list_sessions():
     if not os.path.exists(SESSIONS_DIR):
         return []
     files = os.listdir(SESSIONS_DIR)
-    secret-2fa60f37s = set()
+    sessions_set = set()
     for f in files:
         base_name = os.path.splitext(f)[0]
         if base_name:
-            secret-2fa60f37s.add(base_name)
-    return sorted(list(secret-2fa60f37s))
+            sessions_set.add(base_name)
+    return sorted(list(sessions_set))
 
 def check_account_status(session_name):
     """بررسی سلامت و مشخصات عمومی اکانت"""
@@ -56,7 +56,7 @@ def start_login_process(chat_id, phone_number):
         # ارسال درخواست کد تایید با متد داخلی pyrubi
         client.send_code(phone_number)
         
-        PENDING_LOGINS[chat_id] = {"client": client, "session_name": sess_name}
+        PENDING_LOGINS[chat_id] = {"client": client, "session": sess_name}
         return {"status": "code_sent", "message": f"کد تایید به شماره {phone_number} ارسال شد.\nلطفاً فقط کد دریافتی را بفرستید (مثلاً: 12345):"}
     except Exception as e:
         return {"status": "error", "message": f"خطا در ارسال کد: {str(e)}"}
@@ -75,4 +75,3 @@ def verify_login_code(chat_id, code):
         return {"status": "success", "message": "حساب با موفقیت اضافه شد و سشن ذخیره گردید! ✅"}
     except Exception as e:
         return {"status": "error", "message": f"خطا در تایید کد: {str(e)}"}
-
