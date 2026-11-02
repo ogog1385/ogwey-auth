@@ -41,28 +41,34 @@ def check_account_status(session_name):
             "session": session_name
         }
 
-# موقت برای نگهداری وضعیت ساخت اکانت در حال اجرا
+# نگهداری موقت وضعیت‌های در حال انتظار برای هر ادمین
 PENDING_LOGINS = {}
 
-def start_login_process(session_name, phone_number):
-    """شروع درخواست کد تایید از روبیکا"""
-    sess_path = os.path.join(SESSIONS_DIR, session_name)
+def start_login_process(chat_id, phone_number):
+    """شروع درخواست کد تایید به صورت خودکار"""
+    # نام سشن را بر اساس شماره تلفن (پاکسازی شده) می‌سازیم
+    clean_phone = phone_number.replace("+", "").strip()
+    sess_name = f"acc_{clean_phone}"
+    sess_path = os.path.join(SESSIONS_DIR, sess_name)
+    
     try:
-        # ایجاد کلاینت و درخواست ارسال کد به روبیکا
         client = pyrubi.Client(sess_path, phone_number=phone_number)
-        PENDING_LOGINS[session_name] = client
-        return {"status": "code_sent", "message": "کد تایید به حساب روبیکای شما ارسال شد. لطفاً کد را با دستور /verify وارد کنید."}
+        PENDING_LOGINS[chat_id] = {"client": client, "session_name": sess_name}
+        return {"status": "code_sent", "message": f"کد تایید به شماره {phone_number} ارسال شد.\nلطفاً فقط کد دریافتی را بفرستید (مثلاً: 12345):"}
     except Exception as e:
-        return {"status": "error", "message": str(e)}
+        return {"status": "error", "message": f"خطا در ارسال کد: {str(e)}"}
 
-def verify_login_code(session_name, code):
-    """تایید کد دریافتی و نهایی کردن ورود"""
-    client = PENDING_LOGINS.get(session_name)
-    if not client:
-        return {"status": "error", "message": "هیچ درخواستی برای این نام یافت نشد. ابتدا با /add شروع کنید."}
+def verify_login_code(chat_id, code):
+    """تایید نهایی کد وارد شده"""
+    user_data = PENDING_LOGINS.get(chat_id)
+    if not user_data:
+        return {"status": "error", "message": "ابتدا باید دستور /add را همراه با شماره تلفن ارسال کنید."}
+    
+    client = user_data["client"]
     try:
         client.sign_in(code)
-        del PENDING_LOGINS[session_name]
-        return {"status": "success", "message": "حساب با موفقیت اضافه و سشن ذخیره شد!"}
+        del PENDING_LOGINS[chat_id]
+        return {"status": "success", "message": "حساب با موفقیت اضافه شد و سشن ذخیره گردید! ✅"}
     except Exception as e:
-        return {"status": "error", "message": str(e)}
+        return {"status": "error", "message": f"خطا در تایید کد: {str(e)}"}
+
