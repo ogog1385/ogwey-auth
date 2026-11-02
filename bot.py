@@ -23,7 +23,7 @@ def get_updates(offset=None):
     except Exception:
         return None
 
-def handle_command(chat_id, text):
+def handle_message(chat_id, text):
     text = text.strip()
 
     if text == "/start":
@@ -31,10 +31,8 @@ def handle_command(chat_id, text):
             "سلام! به ربات مدیریت حساب‌ها خوش آمدید.\n\n"
             "دستورات موجود:\n"
             "🔹 /list - مشاهده لیست نشست‌های ذخیره‌شده\n"
-            "🔹 /status <name> - بررسی وضعیت یک حساب\n"
             "🔹 /status_all - بررسی وضعیت تمامی حساب‌ها\n"
-            "🔹 /add <name> <phone> - افزودن اکانت جدید (ارسال کد)\n"
-            "🔹 /verify <name> <code> - تایید کد و ورود نهایی"
+            "🔹 `/add 989123456789` - شروع افزودن اکانت جدید با شماره تلفن"
         )
         send_message(chat_id, msg)
 
@@ -65,46 +63,28 @@ def handle_command(chat_id, text):
                 report += f"⚠️ `{s}`: خطا یا منقضی‌شده\n"
         send_message(chat_id, report)
 
-    elif text.startswith("/status "):
+    elif text.startswith("/add "):
         parts = text.split(maxsplit=1)
         if len(parts) < 2:
-            send_message(chat_id, "فرمت دستور: `/status <نام_نشست>`")
+            send_message(chat_id, "❌ لطفاً شماره تلفن را وارد کنید.\nمثال: `/add 989123456789`")
             return
         
-        sess_name = parts[1].strip()
-        send_message(chat_id, f"در حال بررسی `{sess_name}`...")
-        res = account_manager.check_account_status(sess_name)
-        if res["status"] == "active":
-            send_message(chat_id, f"✅ حساب فعال است:\n👤 نام: {res['name']}")
+        phone = parts[1].strip()
+        send_message(chat_id, f"⏳ در حال درخواست کد برای شماره {phone}...")
+        res = account_manager.start_login_process(chat_id, phone)
+        send_message(chat_id, res["message"])
+
+    else:
+        # اگر کاربر در حال طی کردن مراحل لاگین باشد و فقط کد را بفرستد
+        if chat_id in account_manager.PENDING_LOGINS:
+            send_message(chat_id, "⏳ در حال تایید کد دریافتی...")
+            res = account_manager.verify_login_code(chat_id, text)
+            send_message(chat_id, res["message"])
         else:
-            send_message(chat_id, f"❌ حساب در دسترس نیست:\nخطا: {res['error']}")
-
-    elif text.startswith("/add "):
-        parts = text.split()
-        if len(parts) < 3:
-            send_message(chat_id, "❌ فرمت اشتباه!\nمثال: `/add acc2 989123456789`")
-            return
-        
-        sess_name = parts[1]
-        phone = parts[2]
-        send_message(chat_id, f"⏳ در حال درخواست کد برای `{phone}`...")
-        res = account_manager.start_login_process(sess_name, phone)
-        send_message(chat_id, res["message"])
-
-    elif text.startswith("/verify "):
-        parts = text.split()
-        if len(parts) < 3:
-            send_message(chat_id, "❌ فرمت اشتباه!\nمثال: `/verify acc2 12345`")
-            return
-        
-        sess_name = parts[1]
-        code = parts[2]
-        send_message(chat_id, f"⏳ در حال تایید کد برای `{sess_name}`...")
-        res = account_manager.verify_login_code(sess_name, code)
-        send_message(chat_id, res["message"])
+            send_message(chat_id, "❓ دستور نامعتبر. برای راهنما /start را بفرستید.")
 
 def main():
-    print("[*] ربات بله با قابلیت افزودن اکانت در حال اجرا است...")
+    print("[*] ربات بله با قابلیت افزودن آسان در حال اجرا است...")
     offset = None
     while True:
         try:
@@ -123,8 +103,8 @@ def main():
                         send_message(chat_id, "⛔ شما اجازه دسترسی به این ربات را ندارید.")
                         continue
 
-                    if text.startswith("/"):
-                        handle_command(chat_id, text)
+                    if text:
+                        handle_message(chat_id, text)
 
         except Exception as e:
             print(f"[!] خطای لوپ اصلی: {e}")
