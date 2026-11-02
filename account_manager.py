@@ -40,3 +40,29 @@ def check_account_status(session_name):
             "error": str(exc),
             "session": session_name
         }
+
+# موقت برای نگهداری وضعیت ساخت اکانت در حال اجرا
+PENDING_LOGINS = {}
+
+def start_login_process(session_name, phone_number):
+    """شروع درخواست کد تایید از روبیکا"""
+    sess_path = os.path.join(SESSIONS_DIR, session_name)
+    try:
+        # ایجاد کلاینت و درخواست ارسال کد به روبیکا
+        client = pyrubi.Client(sess_path, phone_number=phone_number)
+        PENDING_LOGINS[session_name] = client
+        return {"status": "code_sent", "message": "کد تایید به حساب روبیکای شما ارسال شد. لطفاً کد را با دستور /verify وارد کنید."}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+def verify_login_code(session_name, code):
+    """تایید کد دریافتی و نهایی کردن ورود"""
+    client = PENDING_LOGINS.get(session_name)
+    if not client:
+        return {"status": "error", "message": "هیچ درخواستی برای این نام یافت نشد. ابتدا با /add شروع کنید."}
+    try:
+        client.sign_in(code)
+        del PENDING_LOGINS[session_name]
+        return {"status": "success", "message": "حساب با موفقیت اضافه و سشن ذخیره شد!"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
