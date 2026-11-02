@@ -47,19 +47,20 @@ PENDING_LOGINS = {}
 def start_login_process(chat_id, phone_number):
     """شروع درخواست کد تایید"""
     clean_phone = phone_number.replace("+", "").strip()
-    sess_name = f"acc_{clean_phone}"
-    sess_path = os.path.join(SESSIONS_DIR, sess_name)
+    session_name = f"acc_{clean_phone}"
+    sess_path = os.path.join(SESSIONS_DIR, session_name)
     
     try:
         # ایجاد کلاینت با مسیر سشن
         client = pyrubi.Client(sess_path)
-        # ارسال درخواست کد تایید با متد داخلی pyrubi
+        
+        # ارسال درخواست کد تایید
         client.send_code(phone_number)
         
-        PENDING_LOGINS[chat_id] = {"client": client, "session": sess_name}
+        PENDING_LOGINS[chat_id] = {"client": client, "session": session_name}
         return {"status": "code_sent", "message": f"کد تایید به شماره {phone_number} ارسال شد.\nلطفاً فقط کد دریافتی را بفرستید (مثلاً: 12345):"}
     except Exception as e:
-        return {"status": "error", "message": f"خطا در ارسال کد: {str(e)}"}
+        return {"status": "error", "message": f"خطا در ارسال کد به روبیکا:\n{str(e)}"}
 
 def verify_login_code(chat_id, code):
     """تایید نهایی کد وارد شده و ثبت نام"""
