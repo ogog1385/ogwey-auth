@@ -32,7 +32,9 @@ def handle_command(chat_id, text):
             "دستورات موجود:\n"
             "🔹 /list - مشاهده لیست نشست‌های ذخیره‌شده\n"
             "🔹 /status <name> - بررسی وضعیت یک حساب\n"
-            "🔹 /status_all - بررسی وضعیت تمامی حساب‌ها"
+            "🔹 /status_all - بررسی وضعیت تمامی حساب‌ها\n"
+            "🔹 /add <name> <phone> - افزودن اکانت جدید (ارسال کد)\n"
+            "🔹 /verify <name> <code> - تایید کد و ورود نهایی"
         )
         send_message(chat_id, msg)
 
@@ -77,8 +79,32 @@ def handle_command(chat_id, text):
         else:
             send_message(chat_id, f"❌ حساب در دسترس نیست:\nخطا: {res['error']}")
 
+    elif text.startswith("/add "):
+        parts = text.split()
+        if len(parts) < 3:
+            send_message(chat_id, "❌ فرمت اشتباه!\nمثال: `/add acc2 989123456789`")
+            return
+        
+        sess_name = parts[1]
+        phone = parts[2]
+        send_message(chat_id, f"⏳ در حال درخواست کد برای `{phone}`...")
+        res = account_manager.start_login_process(sess_name, phone)
+        send_message(chat_id, res["message"])
+
+    elif text.startswith("/verify "):
+        parts = text.split()
+        if len(parts) < 3:
+            send_message(chat_id, "❌ فرمت اشتباه!\nمثال: `/verify acc2 12345`")
+            return
+        
+        sess_name = parts[1]
+        code = parts[2]
+        send_message(chat_id, f"⏳ در حال تایید کد برای `{sess_name}`...")
+        res = account_manager.verify_login_code(sess_name, code)
+        send_message(chat_id, res["message"])
+
 def main():
-    print("[*] ربات بله در حال اجرا است...")
+    print("[*] ربات بله با قابلیت افزودن اکانت در حال اجرا است...")
     offset = None
     while True:
         try:
